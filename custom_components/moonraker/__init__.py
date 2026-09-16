@@ -451,6 +451,9 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         gcode = await self._async_fetch_data(
             METHODS.SERVER_FILES_METADATA, query_object
         )
+        if not isinstance(gcode, dict) or "error" in gcode:
+            return return_gcode
+
         return_gcode["estimated_time"] = gcode.get("estimated_time", 0)
         return_gcode["object_height"] = gcode.get("object_height", 0)
         return_gcode["filament_total"] = gcode.get("filament_total", 0)

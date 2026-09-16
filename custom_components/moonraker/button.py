@@ -215,8 +215,17 @@ async def async_setup_macros(coordinator, entry, async_add_entities):
 
 async def async_setup_services(coordinator, entry, async_add_entities):
     """Create Start, Stop, and Restart buttons for all allowed services."""
-    system_info = await coordinator.async_fetch_data(METHODS.MACHINE_SYSTEM_INFO)
-    available_services = system_info["system_info"].get("available_services", [])
+    response = await coordinator.async_fetch_data(METHODS.MACHINE_SYSTEM_INFO)
+    if not isinstance(response, dict) or "error" in response:
+        return
+
+    system_info = response.get("system_info")
+    if not isinstance(system_info, dict):
+        return
+
+    available_services = system_info.get("available_services", [])
+    if not isinstance(available_services, list):
+        return
 
     service_buttons = []
 

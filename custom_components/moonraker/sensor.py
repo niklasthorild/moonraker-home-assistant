@@ -360,11 +360,15 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 async def _machine_system_info_updater(coordinator):
-    return {
-        "system_info": (
-            await coordinator.async_fetch_data(METHODS.MACHINE_SYSTEM_INFO)
-        )["system_info"]
-    }
+    response = await coordinator.async_fetch_data(METHODS.MACHINE_SYSTEM_INFO)
+    if not isinstance(response, dict) or "error" in response:
+        return {}
+
+    system_info = response.get("system_info")
+    if not isinstance(system_info, dict):
+        return {}
+
+    return {"system_info": system_info}
 
 
 async def async_setup_basic_sensor(coordinator, entry, async_add_entities):

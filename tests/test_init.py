@@ -181,6 +181,41 @@ async def test_gcode_detail_skips_empty_normalized_filename(hass):
     assert result["layer_count"] is None
 
 
+async def test_qidi_optional_errors_keep_core_entities_available(
+    hass, get_data, get_default_api_response
+):
+    """Optional Qidi responses must not prevent the integration from loading."""
+    get_data["status"]["print_stats"]["filename"] = "cached-job.3mf"
+
+    async def qidi_response(method, **kwargs):
+        if method == METHODS.SERVER_FILES_METADATA.value:
+            assert kwargs == {"filename": "cached-job.3mf"}
+            return {"error": {"code": 404, "message": "Metadata unavailable"}}
+        if method == METHODS.MACHINE_SYSTEM_INFO.value:
+            return {"error": {"code": 404, "message": "/dev_info.txt not found"}}
+        return get_default_api_response
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="qidi")
+    config_entry.add_to_hass(hass)
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        new_callable=AsyncMock,
+        side_effect=qidi_response,
+    ):
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    await coordinator.async_request_refresh()
+    assert coordinator.last_update_success
+    assert coordinator.data["estimated_time"] == 1
+    assert hass.states.get("sensor.mainsail_printer_state").state == "ready"
+    assert hass.states.get("button.mainsail_emergency_stop") is not None
+
+    assert await async_unload_entry(hass, config_entry)
+
+
 async def test_gcode_detail_missing_thumbnails_skips_warning(hass, caplog):
     """Missing thumbnail metadata should not emit warnings."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
